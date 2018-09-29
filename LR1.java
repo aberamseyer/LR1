@@ -2,91 +2,103 @@ import java.util.*;
 
 /**
  * This class implements an LR1 parser that checks a 'program' given as a command line argument for syntax errors based on its defined grammar.
- * If the expression is valid, the program evaluates it, printing the state of the stack on every step of parsing. Otherwise, it print
- * Prints "Yes" if syntax follows the given ruleset, otherwise prints "No"
+ * While the expression is valid, the program evaluates it, printing the state of the stack on every step of parsing.
+ * A wholly valid expression will have its value displayed at the end. Otherwise, "Invalid Expression" will print.
  *
  * @author Abe Ramseyer
  */
 public class LR1 {
+    /**
+     * tracks whether the parsers has reached an accepted state
+     */
     static boolean accepted = false;
-    static final String operators = "+-*/()$";
-    static Stack<struct> stack = new Stack<>();
+
+    /**
+     * holds the stack that contains information about the current state, value, and symbol
+     */
+    static Stack<ParseToken> stack = new Stack<>();
+
+    /**
+     * holds the input code
+     */
     static Queue<String> code = new LinkedList<>();
 
     public static void main(String[] args) {
+        // basic error checking
         if (args.length != 1 || args[0].equals("")) {
             System.err.println("Usage: java LR1 <code>");
             System.exit(1);
         }
-        StringTokenizer tokenizer = new StringTokenizer(args[0]+"$", operators, true);
+        // create a string tokenizer and add all its tokens to the queue
+        StringTokenizer tokenizer = new StringTokenizer(args[0].endsWith("$") ? args[0] : args[0]+"$", "+-*/()$", true);
         while(tokenizer.hasMoreTokens())
             code.offer(tokenizer.nextToken());
 
-        stack.push(new struct("", 0, 0));
-        try {
-            while(!accepted) {
-                switch(state()) {
-                    case 0:
-                        zero();
-                        break;
-                    case 1:
-                        one();
-                        break;
-                    case 2:
-                        two();
-                        break;
-                    case 3:
-                        three();
-                        break;
-                    case 4:
-                        four();
-                        break;
-                    case 5:
-                        five();
-                        break;
-                    case 6:
-                        six();
-                        break;
-                    case 7:
-                        seven();
-                        break;
-                    case 8:
-                        eight();
-                        break;
-                    case 9:
-                        nine();
-                        break;
-                    case 10:
-                        ten();
-                        break;
-                    case 11:
-                        eleven();
-                        break;
-                }
-                print();
+        // manually push the starting state to the stack
+        push(new ParseToken("", 0));
+
+        while(!accepted) {
+            // determine which state we are in and jump to the method handling it
+            switch(peekStack().state) {
+                // all 4 of these states have the same behavior in the parsing table, so they have been combined
+                case 0:
+                case 4:
+                case 6:
+                case 7:
+                    zero();
+                    break;
+                case 1:
+                    one();
+                    break;
+                case 2:
+                    two();
+                    break;
+                case 3:
+                    three();
+                    break;
+                case 5:
+                    five();
+                    break;
+                case 8:
+                    eight();
+                    break;
+                case 9:
+                    nine();
+                    break;
+                case 10:
+                    ten();
+                    break;
+                case 11:
+                    eleven();
+                    break;
             }
-        } catch (EmptyStackException e) {
-            no();
         }
-        System.out.println("Valid Expression, value = " + stack.pop().value);
+        System.out.println("Valid Expression, value = " + pop().value);
     }
 
+    /**
+     * state zero
+     */
     static void zero() {
-        switch(peekAsSymbol()) {
+        switch(peekForSymbol()) {
             case "n":
-                stack.push(new struct(code.peek(), 5, code.poll()));
+                push(new ParseToken(code.peek(), 5, code.poll()));
                 break;
             case "(":
-                stack.push(new struct(code.poll(), 4, 0));
+                push(new ParseToken(code.poll(), 4));
                 break;
             default: no();
         }
     }
+
+    /**
+     * state one
+     */
     static void one() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
-                stack.push(new struct(code.poll(), 6, 0));
+                push(new ParseToken(code.poll(), 6));
                 break;
             case "$":
                 accepted = true;
@@ -94,15 +106,19 @@ public class LR1 {
             default: no();
         }
     }
+
+    /**
+     * state two
+     */
     static void two() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
                 reduce("E", "T");
                 break;
             case "*":
             case "/":
-                stack.push(new struct(code.poll(), 7, 0));
+                push(new ParseToken(code.poll(), 7));
                 break;
             case ")":
             case "$":
@@ -111,8 +127,12 @@ public class LR1 {
             default: no();
         }
     }
+
+    /**
+     * state three
+     */
     static void three() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
             case "*":
@@ -124,11 +144,12 @@ public class LR1 {
             default: no();
         }
     }
-    static void four() {
-        zero();
-    }
+
+    /**
+     * state five
+     */
     static void five() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
             case "*":
@@ -140,26 +161,28 @@ public class LR1 {
             default: no();
         }
     }
-    static void six() {
-        four();	// they're the same
-    }
-    static void seven() {
-        six(); // stoooop
-    }
+
+    /**
+     * state eight
+     */
     static void eight() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
-                stack.push(new struct(code.poll(), 6, 0));
+                push(new ParseToken(code.poll(), 6));
                 break;
             case ")":
-                stack.push(new struct(code.poll(), 11, 0));
+                push(new ParseToken(code.poll(), 11));
                 break;
             default: no();
         }
     }
+
+    /**
+     * state nine
+     */
     static void nine() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
             case ")":
@@ -168,13 +191,17 @@ public class LR1 {
                 break;
             case "*":
             case "/":
-                stack.push(new struct(code.poll(), 7, 0));
+                push(new ParseToken(code.poll(), 7));
                 break;
             default: no();
         }
     }
+
+    /**
+     * state ten
+     */
     static void ten() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
             case "*":
@@ -186,8 +213,12 @@ public class LR1 {
             default: no();
         }
     }
+
+    /**
+     * state eleven
+     */
     static void eleven() {
-        switch (peekAsSymbol()) {
+        switch (peekForSymbol()) {
             case "+":
             case "-":
             case "*":
@@ -200,25 +231,34 @@ public class LR1 {
         }
     }
 
+    /**
+     * reduces the stack based on predefined rules of form 'T -> T*F'
+     * @param generated what is generated from the reduction: 'T' in the above example
+     * @param from  what is removed from the stack from the reduction: 'T*F' in the above example
+     */
     static void reduce(String generated, String from) {
+        // the value that will hold the result of any expression computation
         double newValue = 0;
-        struct t, e, f;
+        // variables for holding the objects that are popped of the stack
+        ParseToken t, e, f;
+        // the operator that is found in the stack, e.g. '+' or '-'
         String op;
         switch (from) {
-            // case "E-T":
+            // 'E+T' and 'E-T' follow the same reduction pattern, so they were combined into this one rule
             case "E+-T":
-                t = stack.pop();
-                op = stack.pop().symbol;
-                e = stack.pop();
+                t = pop();
+                op = pop().symbol;
+                e = pop();
                 if (op.equals("+"))
                     newValue = e.value + t.value;
                 else if (op.equals("-"))
                     newValue = e.value - t.value;
                 break;
+            // same as above for 'T*F' and 'T/F'
             case "T*/F":
-                f = stack.pop();
-                op = stack.pop().symbol;
-                t = stack.pop();
+                f = pop();
+                op = pop().symbol;
+                t = pop();
                 if (op.equals("*"))
                     newValue = t.value * f.value;
                 else if (op.equals("/"))
@@ -227,16 +267,18 @@ public class LR1 {
             case "F":
             case "n":
             case "T":
-                newValue = stack.pop().value;
+                newValue = pop().value;
                 break;
             case "(E)":
-                stack.pop();
-                newValue = stack.pop().value;
-                stack.pop();
+                pop();
+                newValue = pop().value;
+                pop();
                 break;
         }
+        // the state that we will be going to when the reduction is complete
         int newState = -1;
-        switch(stack.peek().state) {
+        // check the current state of the stack and set the next state according to the parsing table
+        switch(peekStack().state) {
             case 0:
                 newState = "E".equals(generated) ? 1 :
                         "T".equals(generated) ? 2 :
@@ -255,24 +297,31 @@ public class LR1 {
                 newState = "F".equals(generated) ? 10 : -1;
                 break;
         }
+        // no entry existed in the parsing table for the state seen
         if (newState == -1)
             no();
-        stack.push(new struct(generated, newState, newValue));
+        // push the new reduced token into the stack
+        push(new ParseToken(generated, newState, newValue));
     }
 
-    static int state() {
-        return stack.peek().state;
-    }
-
-
+    /**
+     * automagically prints the token stack and code queue without removing anything from them
+     */
     static void print() {
-        stack.stream().forEach(System.out::print);
+        stack.stream()
+                .forEach(System.out::print);
         System.out.print("\t\t");
-        code.stream().map(t -> t + " ").forEach(System.out::print);
+        code.stream()
+                .map(t -> t + " ")
+                .forEach(System.out::print); // I'm coming for you, ML!
         System.out.println();
     }
 
-    static String peekAsSymbol() {
+    /**
+     * translates an item in the queue to a number if necessary
+     * @return the item
+     */
+    static String peekForSymbol() {
         String token = code.peek();
         if (token.matches("[1-9]\\d*"))
             token = "n";
@@ -280,27 +329,86 @@ public class LR1 {
         return token;
     }
 
+    /**
+     * wrapper for pushing an item onto the code stack and printing it out
+     * @param parseToken the token to push onto the stack
+     */
+    static void push(ParseToken parseToken) {
+        stack.push(parseToken);
+        print();
+    }
+
+    /**
+     * wrapper for popping an item from the code stack, catching errors, and printing it out
+     * @return  the token popped from the stack
+     */
+    static ParseToken pop() {
+        peekStack(); // error handling will be taken care of here if the stack is empty
+        ParseToken toReturn = stack.pop();
+        print();
+        return toReturn;
+    }
+
+    /**
+     * Wrapper for peeking at the stack to catch errors
+     * @return  the item from the top of the stack
+     */
+    static ParseToken peekStack() {
+        ParseToken toReturn = null;
+        try {
+            toReturn = stack.peek();
+        } catch (EmptyStackException e) {
+            no();
+        }
+        return toReturn;
+    }
+
+
+    /**
+     * called when there's an error. Stops the program
+     */
     static void no() {
         System.out.println("Invalid Expression");
         System.exit(0);
     }
 
-    static class struct {
+    /**
+     * class that defines a single item in the stack
+     */
+    static class ParseToken {
+        /**
+         * an item from the code queue or a letter from reduction
+         */
         String symbol;
+
+        /**
+         * the state that the stack is in at this token
+         */
         int state;
+
+        /**
+         * the value of the stack at this token
+         */
         double value;
 
-        struct(String symbol, int state, double value) {
+        ParseToken(String symbol, int state) {
             this.symbol = symbol;
             this.state = state;
+        }
+        ParseToken(String symbol, int state, double value) {
+            this(symbol, state);
             this.value = value;
         }
-        struct(String symbol, int state, String value) {
-            this.symbol = symbol;
-            this.state = state;
+        ParseToken(String symbol, int state, String value) {
+            this(symbol, state);
             this.value = Double.parseDouble(value);
         }
 
+        /*
+         * (non-Javadoc)
+         * @see java.lang.Object#toString()
+         */
+        @Override
         public String toString() {
             return "[" + (symbol.equals("") ? "-" : symbol) + ":" + this.state + "]";
         }
