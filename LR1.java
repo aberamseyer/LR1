@@ -23,6 +23,12 @@ public class LR1 {
      */
     static Queue<String> code = new LinkedList<>();
 
+    /**
+     * used for ensuring a number in the code doesn't start with '0'
+     */
+    static final String validNumber = "[1-9]\\d*";
+
+
     public static void main(String[] args) {
         // basic error checking
         if (args.length != 1 || args[0].equals("")) {
@@ -240,40 +246,53 @@ public class LR1 {
         // the value that will hold the result of any expression computation
         double newValue = 0;
         // variables for holding the objects that are popped of the stack
-        ParseToken t, e, f;
+        ParseToken t, e, f, n;
         // the operator that is found in the stack, e.g. '+' or '-'
         String op;
         switch (from) {
             // 'E+T' and 'E-T' follow the same reduction pattern, so they were combined into this one rule
             case "E+-T":
-                t = pop();
-                op = pop().symbol;
-                e = pop();
+                t = checkedPop("T");
+                op = checkedPop("+-").symbol;
+                e = checkedPop("E");
                 if (op.equals("+"))
                     newValue = e.value + t.value;
                 else if (op.equals("-"))
                     newValue = e.value - t.value;
+                else
+                    no();
                 break;
             // same as above for 'T*F' and 'T/F'
             case "T*/F":
-                f = pop();
-                op = pop().symbol;
-                t = pop();
+                f = checkedPop("F");
+                op = checkedPop("*/").symbol;
+                t = checkedPop("T");
                 if (op.equals("*"))
                     newValue = t.value * f.value;
                 else if (op.equals("/"))
                     newValue = t.value / f.value;
+                else
+                    no();
                 break;
             case "F":
+                newValue = checkedPop("F").value;
+                break;
             case "n":
+                n = pop();
+                if (n.symbol.matches(validNumber))
+                    newValue = n.value;
+                else
+                    no();
+                break;
             case "T":
-                newValue = pop().value;
+                newValue = checkedPop("T").value;
                 break;
             case "(E)":
-                pop();
-                newValue = pop().value;
-                pop();
+                checkedPop(")");
+                newValue = checkedPop("E").value;
+                checkedPop("(");
                 break;
+            default: no();
         }
         // the state that we will be going to when the reduction is complete
         int newState = -1;
@@ -299,7 +318,7 @@ public class LR1 {
         }
         // no entry existed in the parsing table for the state seen
         if (newState == -1)
-            no();
+           no();
         // push the new reduced token into the stack
         push(new ParseToken(generated, newState, newValue));
     }
@@ -323,7 +342,7 @@ public class LR1 {
      */
     static String peekForSymbol() {
         String token = code.peek();
-        if (token.matches("[1-9]\\d*"))
+        if (token.matches(validNumber))
             token = "n";
 
         return token;
@@ -336,6 +355,19 @@ public class LR1 {
     static void push(ParseToken parseToken) {
         stack.push(parseToken);
         print();
+    }
+
+    /**
+     * Pops a token from the stack. If the token doesnt match one of the expected symbol(s), quit
+     * @param expected a string of symbols that are valid results
+     */
+    static ParseToken checkedPop(String expected) {
+        ParseToken t = pop();
+        for (char c : expected.toCharArray())
+            if (t.symbol.indexOf(c) != -1)
+                return t;
+        no();
+        return null;
     }
 
     /**
