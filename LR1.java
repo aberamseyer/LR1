@@ -26,7 +26,7 @@ public class LR1 {
     /**
      * used for ensuring a number in the code doesn't start with '0'
      */
-    static final String validNumber = "[1-9]\\d*";
+    static final String validNumber = "([1-9]\\d*|0)";
 
 
     public static void main(String[] args) {
