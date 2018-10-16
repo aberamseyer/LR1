@@ -79,7 +79,12 @@ public class LR1 {
                     break;
             }
         }
-        System.out.println("Valid Expression, value = " + pop().value);
+        Double val = pop().value;
+        if (Double.isInfinite(val)) {
+            System.out.println("Valid Expression, invalid value: cannot divide by zero");
+        } else {
+            System.out.println("Valid Expression, value = " + val);
+        }
     }
 
     /**
